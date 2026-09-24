@@ -87,7 +87,10 @@ rotation and sixteen past escalations. Everything in it is synthetic.
 ## Quick start
 
 ```bash
-uv venv && uv pip install -e ".[dev]"
+# Needs Python 3.11+. uv downloads it if needed (macOS's built-in python3 is too old):
+#   brew install uv   or   curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv --python 3.12 && source .venv/bin/activate
+uv pip install -e ".[dev]"
 export ANTHROPIC_API_KEY=...
 # Ticket sources: set the ones you use (see .env.example)
 export ZENDESK_SUBDOMAIN=acme ZENDESK_EMAIL=bot@acme.org ZENDESK_API_TOKEN=...
