@@ -1,8 +1,10 @@
 """Slack entry point (Socket Mode, so no public URL is needed).
 
 Flows:
-- Mention @router in a thread: the whole thread is read and routed.
-- "Escalate this" message shortcut: that single message is routed.
+- Mention @router in a thread: the whole thread is read and routed. Zendesk ticket and
+  Jira issue links found in it are fetched, so "@router https://acme.zendesk.com/agent/tickets/1042"
+  is enough.
+- "Escalate this" message shortcut: that single message (and any ticket it links) is routed.
 - Buttons on the suggestion: escalate as suggested, or pick another team.
 """
 
@@ -19,6 +21,7 @@ from . import feedback
 from .agent import EscalationRouter, RoutingError
 from .blocks import correction_modal, escalation_message, suggestion_blocks
 from .config import build_router
+from .sources import TicketLoader, compose_report
 
 log = logging.getLogger(__name__)
 
@@ -33,12 +36,17 @@ def thread_text(client, channel: str, thread_ts: str, bot_user_id: str) -> str:
     return "\n\n".join(line for line in lines if line)
 
 
-def post_suggestion(client, router: EscalationRouter, channel: str, thread_ts: str, report: str) -> None:
+def post_suggestion(
+    client, router: EscalationRouter, loader: TicketLoader, channel: str, thread_ts: str, discussion: str
+) -> None:
     placeholder = client.chat_postMessage(
         channel=channel, thread_ts=thread_ts, text=":mag: Looking into who owns this..."
     )
+    report = compose_report(discussion, loader)
+    for error in report.errors:
+        client.chat_postMessage(channel=channel, thread_ts=thread_ts, text=f":warning: {error}")
     try:
-        result = router.route(report)
+        result = router.route(report.text)
     except RoutingError as exc:
         client.chat_update(
             channel=channel,
@@ -46,7 +54,12 @@ def post_suggestion(client, router: EscalationRouter, channel: str, thread_ts: s
             text=f":warning: I couldn't route this one ({exc}). Please use #support-escalations.",
         )
         return
-    context = {"channel": channel, "thread_ts": thread_ts, "suggested_team": result.decision.team_id}
+    context = {
+        "channel": channel,
+        "thread_ts": thread_ts,
+        "suggested_team": result.decision.team_id,
+        "ticket_url": report.ticket_urls[0] if report.ticket_urls else None,
+    }
     client.chat_update(
         channel=channel,
         ts=placeholder["ts"],
@@ -62,7 +75,9 @@ def escalate(
     permalink = client.chat_getPermalink(channel=ctx["channel"], message_ts=ctx["thread_ts"])["permalink"]
     client.chat_postMessage(
         channel=team.slack_channel,
-        text=escalation_message(team.name, assignee, ctx["summary"], permalink, user_id),
+        text=escalation_message(
+            team.name, assignee, ctx["summary"], permalink, user_id, ctx.get("ticket_url")
+        ),
     )
     client.chat_postMessage(
         channel=ctx["channel"],
@@ -72,22 +87,23 @@ def escalate(
     feedback.record(ctx["summary"], ctx["suggested_team"], team_id, user_id)
 
 
-def create_app(router: EscalationRouter | None = None) -> App:
+def create_app(router: EscalationRouter | None = None, loader: TicketLoader | None = None) -> App:
     app = App(token=os.environ["SLACK_BOT_TOKEN"])
     router = router or build_router()
+    loader = loader or TicketLoader.from_env()
 
     @app.event("app_mention")
     def on_mention(event, client, context):
         thread_ts = event.get("thread_ts") or event["ts"]
         report = thread_text(client, event["channel"], thread_ts, context["bot_user_id"])
-        post_suggestion(client, router, event["channel"], thread_ts, report)
+        post_suggestion(client, router, loader, event["channel"], thread_ts, report)
 
     @app.shortcut("escalate_message")
     def on_shortcut(ack, shortcut, client):
         ack()
         message = shortcut["message"]
         thread_ts = message.get("thread_ts") or message["ts"]
-        post_suggestion(client, router, shortcut["channel"]["id"], thread_ts, message.get("text", ""))
+        post_suggestion(client, router, loader, shortcut["channel"]["id"], thread_ts, message.get("text", ""))
 
     @app.action("escalate")
     def on_escalate(ack, body, client):

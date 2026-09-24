@@ -101,10 +101,18 @@ def correction_modal(catalog: OwnershipCatalog, private_metadata: str) -> dict:
 
 
 def escalation_message(
-    team_name: str, assignee: str | None, summary: str, permalink: str, by_user: str
+    team_name: str,
+    assignee: str | None,
+    summary: str,
+    permalink: str,
+    by_user: str,
+    ticket_url: str | None = None,
 ) -> str:
     who = assignee or "on-call"
+    links = f"<{permalink}|Slack thread>"
+    if ticket_url:
+        links = f"<{ticket_url}|Ticket> · {links}"
     return (
         f":rotating_light: *New escalation for {team_name}* (on call: {who})\n"
-        f"{summary}\n<{permalink}|Original thread> · escalated by <@{by_user}>"
+        f"{summary}\n{links} · escalated by <@{by_user}>"
     )

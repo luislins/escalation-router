@@ -1,19 +1,24 @@
 # Escalation Router
 
-**A Slack agent that tells customer support which engineering team owns a bug, and who is on call.**
+**An agent that reads a Zendesk ticket or Jira issue and tells support which engineering team owns the bug, and who is on call.**
 
 Support agents are not engineers. When a customer reports "the donation button spins forever" or
 "my receipt has the wrong total", the agent has to guess whether that belongs to Payments,
 Donor Experience, Integrations or Reporting. Bugs sit in a generic channel, get bounced between teams,
 and the customer waits.
 
-Escalation Router reads the report, investigates with tools (the ownership catalog, similar past
+Escalation Router takes the ticket support already wrote (Zendesk ticket or Jira issue: title, fields,
+description, latest comments), investigates with tools (the ownership catalog, similar past
 escalations, the on-call schedule) and answers in the thread with a suggested team, the person on call,
 a confidence score, and the bug rewritten for engineers. A human clicks **Escalate**, or picks another
 team, and every correction is logged so it can become an evaluation case.
 
 ```
-support agent ──@router──▶ Slack thread
+Zendesk ticket / Jira issue
+          │  "@router https://acme.zendesk.com/agent/tickets/1042"  (Slack)
+          │  escalation-router SUP-381                               (CLI)
+          ▼
+   ticket → plain text (title, components/tags, description, comments) → PII redaction
                               │
                               ▼
                    ┌─────────────────────┐    search_ownership
@@ -39,6 +44,9 @@ support agent ──@router──▶ Slack thread
 - **Structured output via a terminating tool.** The loop ends when Claude calls `submit_routing`, whose
   schema is enforced with `strict: true` and validated again with Pydantic. An unknown team id goes back
   to the model as a tool error so it can correct itself.
+- **Starts from the ticket, not a retyped summary.** Zendesk and Jira are fetched through their REST
+  APIs. Jira components and Zendesk tags are passed along as hints, weighed against the description
+  since support often sets them.
 - **Pluggable knowledge sources.** Ownership, on-call and history are plain YAML/JSONL files in the demo.
   In a real deployment each one is a small class you can back with Backstage, PagerDuty, Jira, etc.
 - **Measurable.** `evals/run_eval.py` reports top-1 and top-3 routing accuracy on labeled cases.
@@ -54,8 +62,13 @@ rotation and sixteen past escalations. Everything in it is synthetic.
 ```bash
 uv venv && uv pip install -e ".[dev]"
 export ANTHROPIC_API_KEY=...
+# Ticket sources: set the ones you use (see .env.example)
+export ZENDESK_SUBDOMAIN=acme ZENDESK_EMAIL=bot@acme.org ZENDESK_API_TOKEN=...
+export JIRA_BASE_URL=https://acme.atlassian.net JIRA_EMAIL=bot@acme.org JIRA_API_TOKEN=...
 
-# Route from the terminal (no Slack needed)
+# Route a ticket from the terminal (no Slack needed)
+.venv/bin/escalation-router https://acme.zendesk.com/agent/tickets/1042   # or zd:1042
+.venv/bin/escalation-router SUP-381                                       # Jira key or URL
 .venv/bin/escalation-router --trace "Donor says the year-end receipt PDF is missing her refund"
 
 # Measure accuracy on the labeled cases (spends real tokens)
@@ -85,7 +98,10 @@ set -a && source .env && set +a
 
 Socket Mode is used, so no public URL is needed.
 
-Then mention `@router` in a bug thread, or use the **Escalate this** shortcut on a message.
+Then paste a ticket link and mention the bot, e.g. `@router https://acme.zendesk.com/agent/tickets/1042`
+or `@router https://acme.atlassian.net/browse/SUP-381`. Every Zendesk/Jira link in the thread is fetched
+(up to three), and the rest of the thread is included as context. The **Escalate this** message shortcut
+does the same for a single message. The escalation posted to the team channel links the ticket.
 
 ## Using your own company's data
 
@@ -100,12 +116,16 @@ Point `ROUTER_DATA_DIR` at a folder with your own `ownership.yaml`, `oncall.yaml
 | `ROUTER_CONFIDENCE_THRESHOLD` | `0.5` | Below this, route to the fallback team |
 | `ROUTER_USE_FALLBACKS` | `true` | Server-side fallback model if a request is declined |
 | `ROUTER_FEEDBACK_FILE` | `feedback.jsonl` | Where escalations and corrections are logged |
+| `ZENDESK_SUBDOMAIN` / `ZENDESK_EMAIL` / `ZENDESK_API_TOKEN` | | Zendesk API token auth |
+| `JIRA_BASE_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` | | Jira Cloud API token auth |
 
 ## Roadmap
 
 - [x] Agent with ownership catalog, past escalations and on-call tools
+- [x] Input from Zendesk tickets and Jira issues (CLI and Slack links)
 - [x] Slack app with Escalate / Pick another team
 - [x] PII redaction, confidence fallback, feedback log, eval runner
 - [ ] Connectors: Slack history search, GitHub CODEOWNERS and recent commits, Jira, PagerDuty
-- [ ] Create the Jira ticket on escalation
+- [ ] Write the decision back: Zendesk internal note / Jira comment, assign group or component
+- [ ] Trigger automatically from a Zendesk trigger or Jira automation webhook
 - [ ] Expose the tools as an MCP server so engineers can ask "who owns this?" from their editor
