@@ -67,15 +67,13 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "description": (
             "Submit the final routing decision. Call exactly once, after investigating. "
             "confidence is 0-1: use below 0.5 when the report is too vague or fits several "
-            "teams equally. assignee should be the current on-call person of the chosen team "
-            "unless history shows someone clearly better placed."
+            "teams equally. On-call and the people responsible are added automatically."
         ),
         "strict": True,
         "input_schema": {
             "type": "object",
             "properties": {
                 "team_id": {"type": "string"},
-                "assignee": {"type": ["string", "null"]},
                 "confidence": {"type": "number"},
                 "severity": {"type": "string", "enum": ["low", "medium", "high", "critical"]},
                 "summary": {
@@ -100,7 +98,6 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             },
             "required": [
                 "team_id",
-                "assignee",
                 "confidence",
                 "severity",
                 "summary",

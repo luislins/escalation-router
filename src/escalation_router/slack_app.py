@@ -22,9 +22,9 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from . import feedback
-from .agent import EscalationRouter, RoutingError
 from .blocks import correction_modal, resolved_blocks, responsibles_text, suggestion_blocks
 from .config import build_router
+from .router import EscalationRouter, RoutingError
 from .sources import TicketLoader, compose_report
 from .writeback import JiraWriteback, Routing
 

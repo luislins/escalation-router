@@ -1,6 +1,7 @@
 import pytest
 
-from escalation_router.agent import EscalationRouter, RouterConfig, RoutingError
+from escalation_router.agent import AgentRouter
+from escalation_router.router import RouterConfig, RoutingError
 from escalation_router.tools import SUBMIT_TOOL
 
 from .fakes import FakeClient, response, text, tool_use
@@ -9,7 +10,6 @@ from .fakes import FakeClient, response, text, tool_use
 def decision(**overrides):
     base = {
         "team_id": "integrations",
-        "assignee": "Gabriela Costa",
         "confidence": 0.85,
         "severity": "medium",
         "summary": "Salesforce sync duplicates contacts for returning donors.",
@@ -23,7 +23,7 @@ def decision(**overrides):
 
 def make_router(toolbox, responses, **config):
     client = FakeClient(responses)
-    return EscalationRouter(toolbox, client=client, config=RouterConfig(**config)), client
+    return AgentRouter(toolbox, client=client, config=RouterConfig(**config)), client
 
 
 def test_runs_tools_then_returns_decision(toolbox):
@@ -43,6 +43,7 @@ def test_runs_tools_then_returns_decision(toolbox):
 
     assert result.decision.team_id == "integrations"
     assert not result.decision.fell_back
+    assert result.model_calls == 3
     assert [c["name"] for c in result.tool_calls] == [
         "search_past_escalations",
         "search_ownership",
@@ -122,16 +123,18 @@ def test_request_uses_fallbacks_and_adaptive_thinking(toolbox):
 
 
 def test_experts_come_from_history_of_the_chosen_team(toolbox):
+    toolbox.oncall.rotations["integrations"] = ["Felipe Araujo"]
     router, _ = make_router(
         toolbox,
         [
-            response(tool_use(SUBMIT_TOOL, **decision(assignee="Felipe Araujo"))),
+            response(tool_use(SUBMIT_TOOL, **decision())),
         ],
     )
 
     d = router.route("Salesforce sync keeps creating duplicate contacts").decision
 
     assert d.experts[0] == "Gabriela Costa"  # resolved ESC-103, cited as evidence
+    assert d.assignee == "Felipe Araujo"
     assert "Felipe Araujo" not in d.experts  # already listed as on call
     assert all(
         any(i.resolved_by == e and i.team == "integrations" for i in toolbox.history.items) for e in d.experts

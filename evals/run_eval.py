@@ -1,43 +1,49 @@
-"""Measure routing accuracy on labeled cases. Needs ANTHROPIC_API_KEY and spends real tokens.
+"""Measure routing accuracy on labeled cases, per approach.
 
-    python evals/run_eval.py                      # demo cases
-    python evals/run_eval.py path/to/cases.jsonl  # your own (e.g. exported from feedback.jsonl)
-    python evals/run_eval.py --baseline           # keyword-only baseline, no API calls
+    python evals/run_eval.py --mode baseline      # keyword matching only, free
+    python evals/run_eval.py                      # single model call (default), needs ANTHROPIC_API_KEY
+    python evals/run_eval.py --mode agent         # tool-use agent, needs ANTHROPIC_API_KEY
+    python evals/run_eval.py path/to/cases.jsonl  # your own cases
 
-Top-1: the suggested team is the expected one.
-Top-3: the expected team is the suggestion or one of the first two alternatives.
+Top-1: the answer is the expected team.
+Top-3: the expected team is the answer or one of the first two alternatives.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
-import sys
+import statistics
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from escalation_router.agent import RoutingError
 from escalation_router.config import build_router, build_toolbox
+from escalation_router.router import RoutingError
 
 DEFAULT_CASES = Path(__file__).with_name("cases.jsonl")
 
 
 def evaluate(case: dict, router) -> dict:
+    start = time.perf_counter()
     try:
-        decision = router.route(case["report"]).decision
+        result = router.route(case["report"])
     except RoutingError as exc:
-        return {**case, "error": str(exc), "top1": False, "top3": False}
+        return {**case, "predicted": f"error: {exc}", "top1": False, "top3": False, "calls": 0, "seconds": 0}
+    decision = result.decision
     ranked = [decision.team_id, *decision.alternative_team_ids][:3]
     return {
         **case,
         "predicted": decision.team_id,
-        "confidence": decision.confidence,
         "top1": decision.team_id == case["expected_team"],
         "top3": case["expected_team"] in ranked,
+        "calls": result.model_calls,
+        "seconds": time.perf_counter() - start,
     }
 
 
 def evaluate_baseline(case: dict, catalog) -> dict:
-    """What you get from keyword matching alone: the bar the agent has to beat."""
+    """What you get from keyword matching alone: the bar a model has to beat."""
     ranked = list(dict.fromkeys(h["team_id"] for h in catalog.search(case["report"])))
     predicted = ranked[0] if ranked else catalog.fallback_team
     return {
@@ -45,28 +51,40 @@ def evaluate_baseline(case: dict, catalog) -> dict:
         "predicted": predicted,
         "top1": predicted == case["expected_team"],
         "top3": case["expected_team"] in (ranked[:3] or [predicted]),
+        "calls": 0,
+        "seconds": 0,
     }
 
 
 def main() -> None:
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    path = Path(args[0]) if args else DEFAULT_CASES
-    cases = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-    if "--baseline" in sys.argv:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("cases", nargs="?", type=Path, default=DEFAULT_CASES)
+    parser.add_argument("--mode", choices=["baseline", "single", "agent"], default="single")
+    parser.add_argument("--baseline", action="store_true", help="Same as --mode baseline")
+    args = parser.parse_args()
+    mode = "baseline" if args.baseline else args.mode
+
+    cases = [json.loads(line) for line in args.cases.read_text().splitlines() if line.strip()]
+    if mode == "baseline":
         catalog = build_toolbox().catalog
         results = [evaluate_baseline(c, catalog) for c in cases]
     else:
-        router = build_router()
+        router = build_router(mode=mode)
         with ThreadPoolExecutor(max_workers=4) as pool:
             results = list(pool.map(lambda c: evaluate(c, router), cases))
 
     for r in results:
         mark = "ok  " if r["top1"] else "MISS"
-        got = r.get("predicted", r.get("error"))
-        print(f"{mark} expected={r['expected_team']:<20} got={got:<20} {r['report'][:60]}")
+        print(f"{mark} expected={r['expected_team']:<20} got={r['predicted']:<20} {r['report'][:60]}")
     n = len(results)
-    print(f"\ntop-1: {sum(r['top1'] for r in results)}/{n} ({sum(r['top1'] for r in results) / n:.0%})")
-    print(f"top-3: {sum(r['top3'] for r in results)}/{n} ({sum(r['top3'] for r in results) / n:.0%})")
+    top1 = sum(r["top1"] for r in results)
+    top3 = sum(r["top3"] for r in results)
+    print(f"\nmode: {mode}")
+    print(f"top-1: {top1}/{n} ({top1 / n:.0%})")
+    print(f"top-3: {top3}/{n} ({top3 / n:.0%})")
+    if mode != "baseline":
+        print(f"model calls per report: {statistics.mean(r['calls'] for r in results):.1f}")
+        print(f"median seconds per report: {statistics.median(r['seconds'] for r in results):.1f}")
 
 
 if __name__ == "__main__":
