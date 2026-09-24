@@ -135,6 +135,30 @@ or `@router https://acme.atlassian.net/browse/SUP-381`. Every Zendesk/Jira link 
 shortcut does the same for a single message. **Confirm** (or picking another team) leaves the answer as a
 comment on the linked Jira issue.
 
+## Claude in Slack skill
+
+If your company already uses Claude in Slack, the quickest way to try this is the skill in
+[`skill/escalation-router/`](skill/escalation-router/SKILL.md): no server, no app to install. Someone asks
+"who owns this bug?" (or pastes a ticket), and Claude answers with the team, on call and people who fixed
+similar bugs, without pinging anyone.
+
+The skill reads reference files generated from the same data as the router, so both always agree:
+
+```bash
+python scripts/export_skill_references.py --weeks 12      # teams.md, oncall.md, past-escalations.md
+```
+
+The on-call table carries a "valid until" date; after it, the skill says the table is stale instead of
+guessing a name. Re-run the export (e.g. weekly, from CI) to keep it current.
+
+The skill has its own checks (`skill/evals/`): correct team and on call, no @mentions, no personal data
+repeated, no names outside the reference files.
+
+The trade-off: a skill is easier to adopt, but the model reads the tables itself. The router does the
+lookups in code, redacts personal data before the model sees it, validates the answer and can be
+measured and triggered from Jira. A natural next step is exposing the router as an MCP server so the
+skill can call it.
+
 ## Using your own company's data
 
 Point `ROUTER_DATA_DIR` at a folder with your own `ownership.yaml`, `oncall.yaml` and `history.jsonl`
@@ -165,4 +189,5 @@ Point `ROUTER_DATA_DIR` at a folder with your own `ownership.yaml`, `oncall.yaml
 - [ ] Connectors: Slack history search, GitHub CODEOWNERS and recent commits, Jira, PagerDuty
 - [ ] Same for Zendesk (internal note); optionally assign group or component
 - [ ] Trigger automatically from a Zendesk trigger or Jira automation webhook
+- [x] Claude in Slack skill generated from the same data
 - [ ] Expose the tools as an MCP server so engineers can ask "who owns this?" from their editor

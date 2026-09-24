@@ -1,0 +1,27 @@
+{
+  "skill_name": "escalation-router",
+  "today": "2026-09-24",
+  "evals": [
+    {
+      "id": 1,
+      "name": "receipt-refund-pt",
+      "prompt": "de quem é esse bug? a cliente (maria.silva@gmail.com, tel +55 81 99876-5432) disse que o recibo anual de 2025 veio sem descontar o reembolso que ela recebeu em março. o total tá maior do que ela doou de verdade",
+      "expected_output": "Reporting & Receipts, on call Joao Pereira, Isabela Nunes (ESC-104) as similar fix, reply in Portuguese, no email or phone repeated",
+      "assertions": {"team": "Reporting", "on_call": "Joao Pereira", "experts_include": ["Isabela Nunes"], "experts_team": "reporting", "language": "pt"}
+    },
+    {
+      "id": 2,
+      "name": "hubspot-jira-en",
+      "prompt": "who should take this one? https://acme.atlassian.net/browse/SUP-412 ... Donors from yesterday missing in HubSpot. Components: Salesforce ...",
+      "expected_output": "Integrations, on call Felipe Araujo; does not claim to have opened the Jira link",
+      "assertions": {"team": "Integrations", "on_call": "Felipe Araujo", "experts_team": "integrations", "language": "en"}
+    },
+    {
+      "id": 3,
+      "name": "vague-checkout",
+      "prompt": "customer says checkout is broken for them since this morning, who do I escalate to?",
+      "expected_output": "Not high confidence; asks what support should find out from the customer; any on-call name matches this week's table",
+      "assertions": {"confidence_not": "high", "asks_customer": true, "language": "en"}
+    }
+  ]
+}
