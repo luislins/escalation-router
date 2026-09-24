@@ -1,0 +1,105 @@
+# Ownership catalog for "Acme Giving", a fictional online fundraising platform.
+# Each team owns product areas; each area lists the keywords and services that
+# usually show up in bug reports about it.
+
+fallback_team: support-escalations
+
+teams:
+  - id: payments
+    name: Payments
+    slack_channel: "#team-payments"
+    description: Card and bank processing, payment gateways, refunds, disputes, payouts to organizations.
+    areas:
+      - name: Card processing
+        keywords: [stripe, card, declined, charge, 3ds, authentication, apple pay, google pay, wallet]
+        services: [payments-api, gateway-adapter]
+      - name: Refunds and disputes
+        keywords: [refund, chargeback, dispute, reversal]
+        services: [payments-api]
+      - name: Payouts
+        keywords: [payout, transfer, bank account, settlement, balance, stripe connect]
+        services: [payouts-worker]
+      - name: Bank payments
+        keywords: [ach, sepa, bacs, direct debit, pix, bank transfer]
+        services: [gateway-adapter]
+
+  - id: donor-experience
+    name: Donor Experience
+    slack_channel: "#team-donor-experience"
+    description: Donation forms, embedded widgets, checkout flow, donor portal.
+    areas:
+      - name: Donation forms
+        keywords: [form, widget, embed, iframe, checkout, button, amount, custom field, popup]
+        services: [forms-frontend, forms-api]
+      - name: Recurring donations (donor side)
+        keywords: [recurring, monthly, subscription, cancel donation, update card, donor portal]
+        services: [donor-portal]
+      - name: Localization
+        keywords: [translation, language, currency display, locale, rtl]
+        services: [forms-frontend]
+
+  - id: integrations
+    name: Integrations
+    slack_channel: "#team-integrations"
+    description: Third-party CRM and marketing syncs, webhooks, public API, Zapier.
+    areas:
+      - name: CRM sync
+        keywords: [salesforce, hubspot, bloomerang, crm, sync, mapping, duplicate contact]
+        services: [sync-worker]
+      - name: Marketing tools
+        keywords: [mailchimp, constant contact, audience, list, tag]
+        services: [sync-worker]
+      - name: Webhooks and public API
+        keywords: [webhook, api key, zapier, endpoint, rate limit, 401, callback]
+        services: [public-api, webhook-dispatcher]
+
+  - id: reporting
+    name: Reporting & Receipts
+    slack_channel: "#team-reporting"
+    description: Dashboards, exports, tax receipts, year-end statements, emails sent to donors.
+    areas:
+      - name: Tax receipts
+        keywords: [receipt, tax, year-end, statement, pdf, 501c3, gift aid]
+        services: [receipts-worker]
+      - name: Exports and dashboards
+        keywords: [export, csv, report, dashboard, chart, totals, analytics]
+        services: [reports-api]
+      - name: Transactional email
+        keywords: [email, thank you email, not received, bounce, template]
+        services: [mailer]
+
+  - id: campaigns
+    name: Campaigns & Events
+    slack_channel: "#team-campaigns"
+    description: Campaign pages, peer-to-peer fundraising, events and ticketing, memberships.
+    areas:
+      - name: Peer-to-peer
+        keywords: [peer-to-peer, p2p, fundraiser page, team page, goal meter, leaderboard]
+        services: [campaigns-api]
+      - name: Events and ticketing
+        keywords: [event, ticket, qr code, check-in, attendee, registration]
+        services: [events-api]
+      - name: Memberships
+        keywords: [membership, member, tier, renewal]
+        services: [campaigns-api]
+
+  - id: platform
+    name: Platform & Identity
+    slack_channel: "#team-platform"
+    description: Login, 2FA, user roles and permissions, org accounts, performance and outages.
+    areas:
+      - name: Authentication
+        keywords: [login, password, 2fa, sso, saml, session, locked out, magic link]
+        services: [auth-service]
+      - name: Permissions and org accounts
+        keywords: [role, permission, invite, team member, admin, access denied, 403]
+        services: [accounts-api]
+      - name: Reliability
+        keywords: [outage, 500, timeout, slow, down, latency, error page, deploy]
+        services: [edge, core-web]
+
+  - id: support-escalations
+    name: Support Escalations (triage rotation)
+    slack_channel: "#support-escalations"
+    description: Human triage rotation. Receives anything the router cannot place with confidence.
+    areas: []

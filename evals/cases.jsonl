@@ -1,0 +1,15 @@
+{"report": "Doadora disse que tentou doar 3 vezes com cartão e sempre aparece 'pagamento recusado', mas o banco dela diz que não tem bloqueio", "expected_team": "payments"}
+{"report": "Customer says the donation button on their Squarespace site just spins forever and never opens the form", "expected_team": "donor-experience"}
+{"report": "Org says donors from yesterday are not showing up in HubSpot", "expected_team": "integrations"}
+{"report": "A donor needs their 2025 year-end statement but the PDF only shows donations until October", "expected_team": "reporting"}
+{"report": "La organización dice que el transferencia de fondos a su cuenta bancaria no llegó esta semana", "expected_team": "payments"}
+{"report": "Team fundraising page leaderboard shows the wrong team in first place", "expected_team": "campaigns"}
+{"report": "Admin says she gets logged out every 5 minutes and has to do the magic link again", "expected_team": "platform"}
+{"report": "Zapier zap stopped receiving new donations since Monday, says 401 unauthorized", "expected_team": "integrations"}
+{"report": "Donor wants to change the card on his monthly donation but the update card page gives an error", "expected_team": "donor-experience"}
+{"report": "Cliente disse que o email de agradecimento está saindo com o nome da organização errado", "expected_team": "reporting"}
+{"report": "Whole dashboard is showing error 500 for every customer right now", "expected_team": "platform"}
+{"report": "Attendees bought tickets but didn't get their QR codes for the gala", "expected_team": "campaigns"}
+{"report": "Org reports a chargeback notification but can't find the dispute in the dashboard", "expected_team": "payments"}
+{"report": "The donation totals in the dashboard chart don't match the CSV export", "expected_team": "reporting"}
+{"report": "customer says it's broken", "expected_team": "support-escalations"}

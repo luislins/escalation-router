@@ -1,0 +1,37 @@
+[project]
+name = "escalation-router"
+version = "0.1.0"
+description = "A Slack agent that tells support which engineering team owns a bug."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "anthropic>=1.8",
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "slack-bolt>=1.20",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+escalation-router = "escalation_router.cli:main"
+escalation-router-slack = "escalation_router.slack_app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/escalation_router"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

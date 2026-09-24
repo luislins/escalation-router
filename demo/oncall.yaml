@@ -1,0 +1,10 @@
+# Weekly on-call rotation per team. The week is picked by ISO week number,
+# so the demo always has someone on call.
+rotations:
+  payments: [Ana Souza, Bruno Lima, Carla Mendes]
+  donor-experience: [Diego Rocha, Elisa Martins]
+  integrations: [Felipe Araujo, Gabriela Costa, Henrique Alves]
+  reporting: [Isabela Nunes, Joao Pereira]
+  campaigns: [Karina Dias, Leonardo Freitas]
+  platform: [Mariana Gomes, Nicolas Barros, Olivia Ramos]
+  support-escalations: [Paula Teixeira, Rafael Monteiro]
