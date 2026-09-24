@@ -130,6 +130,20 @@ class JiraSource:
             comments=[c.get("body", "") for c in (f.get("comment") or {}).get("comments", [])],
         )
 
+    def add_comment(self, key: str, body: str) -> None:
+        """body uses Jira wiki markup (API v2)."""
+        response = self.http.post(
+            f"{self.base_url}/rest/api/2/issue/{key}/comment", json={"body": body}, auth=self.auth
+        )
+        response.raise_for_status()
+
+    def update_issue(self, key: str, update: dict) -> None:
+        """Apply field operations, e.g. {"labels": [{"add": "x"}]}."""
+        response = self.http.put(
+            f"{self.base_url}/rest/api/2/issue/{key}", json={"update": update}, auth=self.auth
+        )
+        response.raise_for_status()
+
 
 @dataclass
 class TicketRef:
@@ -181,12 +195,14 @@ MAX_TICKETS_PER_REPORT = 3
 class ComposedReport:
     text: str
     ticket_urls: list[str] = field(default_factory=list)
+    jira_keys: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
 
 
 def compose_report(discussion: str, loader: TicketLoader) -> ComposedReport:
     """Tickets linked in a discussion (e.g. a Slack thread), followed by the discussion itself."""
-    parts, urls, errors = [], [], []
+    report = ComposedReport(text="")
+    parts = []
     seen: set[tuple[str, str]] = set()
     for ref in find_ticket_refs(discussion):
         if (ref.source, ref.id) in seen or len(seen) >= MAX_TICKETS_PER_REPORT:
@@ -195,10 +211,13 @@ def compose_report(discussion: str, loader: TicketLoader) -> ComposedReport:
         try:
             ticket = loader.load(ref)
         except (TicketNotFound, httpx.HTTPError) as exc:
-            errors.append(str(exc) or f"Could not load {ref.source} {ref.id}")
+            report.errors.append(str(exc) or f"Could not load {ref.source} {ref.id}")
             continue
         parts.append(ticket.to_report())
-        urls.append(ticket.url)
+        report.ticket_urls.append(ticket.url)
+        if ref.source == "jira":
+            report.jira_keys.append(ref.id)
     if discussion.strip():
         parts.append(f"Slack discussion:\n{discussion.strip()}")
-    return ComposedReport(text="\n\n---\n\n".join(parts), ticket_urls=urls, errors=errors)
+    report.text = "\n\n---\n\n".join(parts)
+    return report

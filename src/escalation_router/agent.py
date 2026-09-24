@@ -68,8 +68,9 @@ class EscalationRouter:
         self.config = config or RouterConfig()
 
     def route(self, report: str) -> RoutingResult:
+        report = redact(report)
         messages: list[dict[str, Any]] = [
-            {"role": "user", "content": f"<bug_report>\n{redact(report)}\n</bug_report>"}
+            {"role": "user", "content": f"<bug_report>\n{report}\n</bug_report>"}
         ]
         tool_calls: list[dict[str, Any]] = []
 
@@ -115,6 +116,7 @@ class EscalationRouter:
                     )
 
             if decision is not None:
+                decision.experts = self._experts(decision, report)
                 return RoutingResult(decision=decision, tool_calls=tool_calls)
             messages.append({"role": "user", "content": results})
 
@@ -136,6 +138,18 @@ class EscalationRouter:
                 **params, betas=["server-side-fallback-2026-07-01"], fallbacks="default"
             )
         return self.client.messages.create(**params)
+
+    def _experts(self, decision: RoutingDecision, report: str, limit: int = 3) -> list[str]:
+        """Who on the chosen team resolved the escalations cited as evidence, or similar ones."""
+        if decision.fell_back:
+            return []
+        history = self.toolbox.history
+        cited = [i for i in history.items if i.id in decision.evidence]
+        similar = history.search(f"{decision.summary}\n{report}", limit=10)
+        names = [i.resolved_by for i in cited if i.team == decision.team_id]
+        names += [h["resolved_by"] for h in similar if h["team"] == decision.team_id]
+        people = [n for n in dict.fromkeys(names) if n and n != decision.assignee]
+        return people[:limit]
 
     def _finalize(self, raw: dict[str, Any]) -> RoutingDecision:
         self.toolbox.validate_team(raw["team_id"])

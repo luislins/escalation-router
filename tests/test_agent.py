@@ -119,3 +119,30 @@ def test_request_uses_fallbacks_and_adaptive_thinking(toolbox):
     assert params["thinking"] == {"type": "adaptive"}
     assert params["fallbacks"] == "default"
     assert params["betas"] == ["server-side-fallback-2026-07-01"]
+
+
+def test_experts_come_from_history_of_the_chosen_team(toolbox):
+    router, _ = make_router(
+        toolbox,
+        [
+            response(tool_use(SUBMIT_TOOL, **decision(assignee="Felipe Araujo"))),
+        ],
+    )
+
+    d = router.route("Salesforce sync keeps creating duplicate contacts").decision
+
+    assert d.experts[0] == "Gabriela Costa"  # resolved ESC-103, cited as evidence
+    assert "Felipe Araujo" not in d.experts  # already listed as on call
+    assert all(
+        any(i.resolved_by == e and i.team == "integrations" for i in toolbox.history.items) for e in d.experts
+    )
+
+
+def test_no_experts_when_falling_back(toolbox):
+    router, _ = make_router(
+        toolbox,
+        [
+            response(tool_use(SUBMIT_TOOL, **decision(confidence=0.2))),
+        ],
+    )
+    assert router.route("Salesforce duplicates").decision.experts == []

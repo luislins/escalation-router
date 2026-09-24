@@ -12,10 +12,10 @@ def feedback_path() -> Path:
     return Path(os.environ.get("ROUTER_FEEDBACK_FILE", "feedback.jsonl"))
 
 
-def record(report: str, suggested_team: str, final_team: str, user: str, path: Path | None = None) -> None:
+def record(reference: str, suggested_team: str, final_team: str, user: str, path: Path | None = None) -> None:
     entry = {
         "at": dt.datetime.now(dt.UTC).isoformat(),
-        "report": report,
+        "reference": reference,
         "suggested_team": suggested_team,
         "final_team": final_team,
         "accepted": suggested_team == final_team,

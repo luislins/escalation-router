@@ -6,10 +6,10 @@ features:
     display_name: router
     always_online: true
   shortcuts:
-    - name: Escalate this
+    - name: Who owns this?
       type: message
-      callback_id: escalate_message
-      description: Find the team that owns this bug
+      callback_id: route_message
+      description: Find the team and people responsible for this bug
 oauth_config:
   scopes:
     bot:

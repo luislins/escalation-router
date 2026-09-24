@@ -8,6 +8,7 @@ teams:
   - id: payments
     name: Payments
     slack_channel: "#team-payments"
+    jira_component: Payments
     description: Card and bank processing, payment gateways, refunds, disputes, payouts to organizations.
     areas:
       - name: Card processing
@@ -26,6 +27,7 @@ teams:
   - id: donor-experience
     name: Donor Experience
     slack_channel: "#team-donor-experience"
+    jira_component: Donor Experience
     description: Donation forms, embedded widgets, checkout flow, donor portal.
     areas:
       - name: Donation forms
@@ -41,6 +43,7 @@ teams:
   - id: integrations
     name: Integrations
     slack_channel: "#team-integrations"
+    jira_component: Integrations
     description: Third-party CRM and marketing syncs, webhooks, public API, Zapier.
     areas:
       - name: CRM sync
@@ -56,6 +59,7 @@ teams:
   - id: reporting
     name: Reporting & Receipts
     slack_channel: "#team-reporting"
+    jira_component: Reporting
     description: Dashboards, exports, tax receipts, year-end statements, emails sent to donors.
     areas:
       - name: Tax receipts
@@ -71,6 +75,7 @@ teams:
   - id: campaigns
     name: Campaigns & Events
     slack_channel: "#team-campaigns"
+    jira_component: Campaigns
     description: Campaign pages, peer-to-peer fundraising, events and ticketing, memberships.
     areas:
       - name: Peer-to-peer
@@ -86,6 +91,7 @@ teams:
   - id: platform
     name: Platform & Identity
     slack_channel: "#team-platform"
+    jira_component: Platform
     description: Login, 2FA, user roles and permissions, org accounts, performance and outages.
     areas:
       - name: Authentication

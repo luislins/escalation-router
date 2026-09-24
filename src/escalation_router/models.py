@@ -21,6 +21,8 @@ class Team(BaseModel):
     name: str
     slack_channel: str
     description: str = ""
+    # Jira component set on the issue when a bug is escalated to this team.
+    jira_component: str | None = None
     areas: list[Area] = Field(default_factory=list)
 
 
@@ -47,4 +49,6 @@ class RoutingDecision(BaseModel):
     alternative_team_ids: list[str] = Field(default_factory=list)
     clarifying_questions: list[str] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
+    # People on the chosen team who fixed similar bugs before (from escalation history).
+    experts: list[str] = Field(default_factory=list)
     fell_back: bool = False

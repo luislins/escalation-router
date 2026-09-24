@@ -2,6 +2,7 @@
 
 escalation-router https://acme.zendesk.com/agent/tickets/1042
 escalation-router SUP-381                     # Jira issue key
+escalation-router SUP-381 --write-back        # also comment the answer on the Jira issue
 escalation-router zd:1042                     # Zendesk ticket id
 escalation-router "Donor says the receipt PDF has the wrong total"
 echo "..." | escalation-router -
@@ -17,6 +18,7 @@ import httpx
 
 from .config import build_router
 from .sources import TicketLoader, TicketNotFound, parse_ref
+from .writeback import JiraWriteback, Routing
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -24,6 +26,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "report",
         help="Zendesk ticket URL or zd:<id>, Jira issue URL or key, free text, or '-' for stdin",
+    )
+    parser.add_argument(
+        "--write-back",
+        action="store_true",
+        help="Comment the team and people responsible on the Jira issue (nobody is mentioned)",
     )
     parser.add_argument("--trace", action="store_true", help="Also print the tool calls the agent made")
     args = parser.parse_args(argv)
@@ -37,10 +44,26 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(f"Could not load {ref.source} {ref.id}: {exc}")
         report = ticket.to_report()
 
-    result = build_router().route(report)
-    output = result.decision.model_dump()
+    router = build_router()
+    result = router.route(report)
+    decision = result.decision
+    output = decision.model_dump()
     if ticket:
         output["ticket_url"] = ticket.url
+
+    if args.write_back:
+        writeback = JiraWriteback.from_env()
+        if not ticket or ticket.source != "Jira" or writeback is None:
+            sys.exit("--write-back needs a Jira issue and the JIRA_* variables.")
+        routing = Routing(
+            team=router.toolbox.catalog.get(decision.team_id),
+            assignee=decision.assignee,
+            experts=decision.experts,
+            confirmed_by="the CLI",
+            confidence=decision.confidence,
+            rationale=decision.rationale,
+        )
+        output["write_back_errors"] = writeback.apply(ticket.id, routing)
     if args.trace:
         output["report_sent"] = report
         output["tool_calls"] = result.tool_calls

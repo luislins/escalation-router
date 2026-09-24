@@ -1,4 +1,8 @@
-"""Slack Block Kit layouts. Pure functions so they are easy to test."""
+"""Slack Block Kit layouts. Pure functions so they are easy to test.
+
+Names are plain text on purpose: the bot tells support who is responsible,
+it does not @mention or notify anyone.
+"""
 
 from __future__ import annotations
 
@@ -8,63 +12,52 @@ from typing import Any
 from .knowledge import OwnershipCatalog
 from .models import RoutingDecision
 
-SEVERITY_EMOJI = {
-    "low": ":white_circle:",
-    "medium": ":large_yellow_circle:",
-    "high": ":large_orange_circle:",
-    "critical": ":red_circle:",
-}
+
+def responsibles_text(assignee: str | None, experts: list[str]) -> list[str]:
+    lines = [f"*On call:* {assignee or 'unknown'}"]
+    if experts:
+        lines.append(f"*Fixed similar bugs:* {', '.join(experts)}")
+    return lines
 
 
 def suggestion_blocks(
     decision: RoutingDecision, catalog: OwnershipCatalog, context: dict[str, Any]
 ) -> list[dict]:
     team = catalog.get(decision.team_id)
-    header = f"*Suggested team:* {team.name} ({team.slack_channel})"
     if decision.fell_back:
-        header = f"*Not confident enough to pick a team* — sending to {team.name} ({team.slack_channel})."
-    lines = [
-        header,
-        f"*On call:* {decision.assignee or 'unknown'}",
-        f"*Severity:* {SEVERITY_EMOJI[decision.severity]} {decision.severity}"
-        f"   *Confidence:* {decision.confidence:.0%}",
-    ]
+        header = (
+            f"*Not confident enough to pick a team.* Best place to ask: {team.name} ({team.slack_channel})"
+        )
+    else:
+        header = f"*Team:* {team.name} ({team.slack_channel})"
+    lines = [header, *responsibles_text(decision.assignee, decision.experts)]
+    lines.append(f"*Confidence:* {decision.confidence:.0%}")
     if decision.alternative_team_ids:
         alts = ", ".join(catalog.get(t).name for t in decision.alternative_team_ids)
         lines.append(f"*Also possible:* {alts}")
 
-    blocks: list[dict] = [
-        {"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}},
-        {
-            "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*Summary for engineers*\n{decision.summary}"},
-        },
-        {"type": "context", "elements": [{"type": "mrkdwn", "text": f"_Why:_ {decision.rationale}"}]},
-    ]
-    if decision.clarifying_questions:
-        questions = "\n".join(f"• {q}" for q in decision.clarifying_questions)
-        blocks.append(
-            {"type": "section", "text": {"type": "mrkdwn", "text": f"*Ask the customer*\n{questions}"}}
-        )
-
-    # Button values are capped at 2000 chars by Slack, so the summary is trimmed.
+    # Button values are capped at 2000 chars by Slack, so the rationale is trimmed.
     value = json.dumps(
         {
             **context,
             "team_id": decision.team_id,
             "assignee": decision.assignee,
-            "summary": decision.summary[:1200],
+            "experts": decision.experts,
+            "confidence": decision.confidence,
+            "rationale": decision.rationale[:800],
         }
     )
-    blocks.append(
+    return [
+        {"type": "section", "text": {"type": "mrkdwn", "text": "\n".join(lines)}},
+        {"type": "context", "elements": [{"type": "mrkdwn", "text": f"_Why:_ {decision.rationale}"}]},
         {
             "type": "actions",
             "elements": [
                 {
                     "type": "button",
-                    "action_id": "escalate",
+                    "action_id": "confirm_route",
                     "style": "primary",
-                    "text": {"type": "plain_text", "text": f"Escalate to {team.name}"},
+                    "text": {"type": "plain_text", "text": "Confirm"},
                     "value": value,
                 },
                 {
@@ -74,9 +67,14 @@ def suggestion_blocks(
                     "value": value,
                 },
             ],
-        }
-    )
-    return blocks
+        },
+    ]
+
+
+def resolved_blocks(blocks: list[dict], note: str) -> list[dict]:
+    """The suggestion without its buttons, so the same answer cannot be confirmed twice."""
+    kept = [b for b in blocks if b.get("type") != "actions"]
+    return [*kept, {"type": "context", "elements": [{"type": "mrkdwn", "text": note}]}]
 
 
 def correction_modal(catalog: OwnershipCatalog, private_metadata: str) -> dict:
@@ -87,8 +85,8 @@ def correction_modal(catalog: OwnershipCatalog, private_metadata: str) -> dict:
         "type": "modal",
         "callback_id": "correct_route_submit",
         "private_metadata": private_metadata,
-        "title": {"type": "plain_text", "text": "Route to another team"},
-        "submit": {"type": "plain_text", "text": "Escalate"},
+        "title": {"type": "plain_text", "text": "Pick the right team"},
+        "submit": {"type": "plain_text", "text": "Save"},
         "blocks": [
             {
                 "type": "input",
@@ -98,21 +96,3 @@ def correction_modal(catalog: OwnershipCatalog, private_metadata: str) -> dict:
             }
         ],
     }
-
-
-def escalation_message(
-    team_name: str,
-    assignee: str | None,
-    summary: str,
-    permalink: str,
-    by_user: str,
-    ticket_url: str | None = None,
-) -> str:
-    who = assignee or "on-call"
-    links = f"<{permalink}|Slack thread>"
-    if ticket_url:
-        links = f"<{ticket_url}|Ticket> · {links}"
-    return (
-        f":rotating_light: *New escalation for {team_name}* (on call: {who})\n"
-        f"{summary}\n{links} · escalated by <@{by_user}>"
-    )
